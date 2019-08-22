@@ -1,0 +1,29 @@
+---
+title: "ChIP-seq analyses"
+author: "Martin Prevorovsky"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#QC of sequence reads
+
+Technical quality of library construction and sequencing run was tested using fastQC
+
+```{bash}
+fastqc --version
+
+CPU=4
+fastQC_outdir="./fastqc_ChIP-seq/"
+fastq_dir="./FASTQ_ChIP-seq/"
+
+mkdir -p "${fastQC_outdir}"
+ls -1 "${fastq_dir}" | grep .fastq.gz$ > FASTQ_files
+fastq_files=`cat FASTQ_files`
+for i in ${fastq_files};
+do
+	fastqc --outdir "${fastQC_outdir}" --threads "${CPU}" "${fastq_dir}${i}"
+done
+```

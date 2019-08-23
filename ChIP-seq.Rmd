@@ -1,11 +1,18 @@
 ---
 title: "ChIP-seq analyses"
-author: "Martin Prevorovsky"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(fastqcr)
+library(dplyr)
+```
+
+Variables for shell scripts are stored in the file "shell_variables_ChIP-seq.sh" and can be modified as needed:
+
+```{bash variables}
+cat shell_variables_ChIP-seq.sh
 ```
 
 #QC of sequence reads
@@ -14,16 +21,75 @@ Technical quality of library construction and sequencing run was tested using fa
 
 ```{bash}
 fastqc --version
+```
 
-CPU=4
-fastQC_outdir="./fastqc_ChIP-seq/"
-fastq_dir="./FASTQ_ChIP-seq/"
+```{bash, eval=FALSE}
+source shell_variables_ChIP-seq.sh
 
-mkdir -p "${fastQC_outdir}"
-ls -1 "${fastq_dir}" | grep .fastq.gz$ > FASTQ_files
-fastq_files=`cat FASTQ_files`
+mkdir -p "${fastQC_dir}"
+ls -1 "${fastq_dir}" | grep "${fastq_file_ext}" > "${fastq_file_list}"
+fastq_files=`cat "${fastq_file_list}"`
 for i in ${fastq_files};
 do
-	fastqc --outdir "${fastQC_outdir}" --threads "${CPU}" "${fastq_dir}${i}"
+  fastqc --quiet --outdir "${fastQC_dir}" --threads "${CPU}" "${fastq_dir}${i}"
 done
+```
+
+Summarize fastQC results
+
+```{r, message=FALSE, eval=FALSE}
+fastQC_dir <- './fastQC_ChIP-seq/'
+qc <- qc_aggregate(fastQC_dir, progressbar = FALSE)
+qc_report(qc.path = fastQC_dir, result.file = paste0(fastQC_dir, 'fastQC-summary'),
+          experiment = 'RNAP ChIP-seq in Bacillus subtilis (torpedo)')
+```
+
+Results of QC:
+
+* 50 nt reads
+
+* 45-48M reads per input sample, 31-40M reads per IP sample
+
+* no adapter contamination
+
+* good read quality scores
+
+* cleaning/trimming of reads is not needed
+
+#Read mapping
+
+Genome sequence and annotation:
+
+* Bacillus subtilis subps. subtilis strain 168 chromosome, complete genome (gi|255767013|ref|NC_000964|); https://www.ncbi.nlm.nih.gov/nuccore/NC_000964
+
+* genome annotation (GFF): genome-build-accession NCBI_Assembly:GCF_000009045.1; ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF_000009045.1_ASM904v1 downloaded 15/Nov/2015
+
+```{bash}
+hisat2 --version
+samtools --version
+```
+
+```{bash}
+source shell_variables_ChIP-seq.sh
+
+# build HISAT2 index
+hisat2-build --quiet -p 4 "${genome}" "${genome}"
+
+# map
+mkdir -p "${bam_dir}"
+fastq_files=`cat "${fastq_file_list}"`
+for i in ${fastq_files};
+do
+	infile="${fastq_dir}${i}"
+	outfile="${bam_dir}${i}.bam"
+	hisat2 -x "${genome}" -U "${infile}" --threads "${CPU}" --no-spliced-alignment --quiet \
+	  --summary-file "${outfile}.log" | samtools view -b -q "${Q}" --threads "${CPU}" - | samtools sort -o "${outfile}" - 
+	samtools index "${outfile}"
+done
+```
+
+***
+
+```{r}
+sessionInfo()
 ```

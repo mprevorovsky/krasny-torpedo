@@ -69,7 +69,7 @@ hisat2 --version
 samtools --version
 ```
 
-```{bash}
+```{bash, eval=FALSE}
 source shell_variables_ChIP-seq.sh
 
 # build HISAT2 index
@@ -82,7 +82,7 @@ for i in ${fastq_files};
 do
 	infile="${fastq_dir}${i}"
 	outfile="${bam_dir}${i}.bam"
-	echo "${infile}"
+	echo "${outfile}"
 	hisat2 -x "${genome}" -U "${infile}" --threads "${CPU}" --no-spliced-alignment --quiet \
 	  --met-file "${outfile}.log" | samtools view -b -q "${Q}" --threads "${CPU}" - | samtools sort -o "${outfile}" - 
 	samtools index "${outfile}"
@@ -93,6 +93,39 @@ done
 Notes
 
 * multimapping and poorly mapped reads were removed from further analysis (MAPQ <10)
+
+#Create normalized BigWig files
+
+```{bash}
+deeptools --version
+```
+
+```{bash}
+source shell_variables_ChIP-seq.sh
+
+mkdir -p "${coverage_dir}"
+ls -1 "${bam_dir}" | grep ".bam$" > "${bam_file_list}"
+mapfile -t bam_files < "${bam_file_list}"
+sample_count=$(expr "${#bam_files[@]}" / 2)
+
+# check visually in IGV whether the input coverage is even across the genome
+for i in $(eval echo "{1..$sample_count}");
+do
+	input_file="${bam_dir}${bam_files[${i}-1]}"
+	bamCoverage -p "${CPU}" -b "${input_file}" -o "${coverage_dir}${bam_files[${i}-1]}.bw"
+done
+
+
+for i in $(eval echo "{1..$sample_count}");
+do
+	input_file="${bam_dir}${bam_files[${i}-1]}"
+	ip_file="${bam_dir}${bam_files[${i}+${sample_count}-1]}"
+	bamCompare --operation ratio --binSize 1 -p "${CPU}" --scaleFactorsMethod readCount \ 
+	  -b1 "${ip_file}" \
+	  -b2 "${input_file}" \
+	  -o "${coverage_dir}${bam_files[${i}+${sample_count}-1]}.input-normalized.bw"
+done
+```
 
 ***
 

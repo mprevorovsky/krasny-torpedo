@@ -73,7 +73,7 @@ samtools --version
 source shell_variables_ChIP-seq.sh
 
 # build HISAT2 index
-hisat2-build --quiet -p 4 "${genome}" "${genome}"
+hisat2-build --quiet -p "${CPU}" "${genome}" "${genome}"
 
 # map
 mkdir -p "${bam_dir}"
@@ -82,11 +82,17 @@ for i in ${fastq_files};
 do
 	infile="${fastq_dir}${i}"
 	outfile="${bam_dir}${i}.bam"
+	echo "${infile}"
 	hisat2 -x "${genome}" -U "${infile}" --threads "${CPU}" --no-spliced-alignment --quiet \
-	  --summary-file "${outfile}.log" | samtools view -b -q "${Q}" --threads "${CPU}" - | samtools sort -o "${outfile}" - 
+	  --met-file "${outfile}.log" | samtools view -b -q "${Q}" --threads "${CPU}" - | samtools sort -o "${outfile}" - 
 	samtools index "${outfile}"
+	samtools view -c --threads "${CPU}" "${outfile}"
 done
 ```
+
+Notes
+
+* multimapping and poorly mapped reads were removed from further analysis (MAPQ <10)
 
 ***
 

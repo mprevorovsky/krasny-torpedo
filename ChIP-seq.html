@@ -125,6 +125,7 @@ $(document).ready(function () {
 </div>
 
 
+<p>Variables for shell scripts are stored in the file “shell_variables_ChIP-seq.sh” and can be modified as needed:</p>
 <pre class="bash"><code>cat shell_variables_ChIP-seq.sh</code></pre>
 <pre><code>## #!/bin/bash
 ## 
@@ -168,7 +169,7 @@ qc_report(qc.path = fastQC_dir, result.file = paste0(fastQC_dir, 'fastQC-summary
 <li><p>50 nt reads</p></li>
 <li><p>45-48M reads per input sample, 31-40M reads per IP sample</p></li>
 <li><p>no adapter contamination</p></li>
-<li><p>no low-quality reads</p></li>
+<li><p>good read quality scores</p></li>
 <li><p>cleaning/trimming of reads is not needed</p></li>
 </ul>
 </div>
@@ -194,7 +195,7 @@ samtools --version</code></pre>
 <pre class="bash"><code>source shell_variables_ChIP-seq.sh
 
 # build HISAT2 index
-hisat2-build --quiet -p 4 &quot;${genome}&quot; &quot;${genome}&quot;
+hisat2-build --quiet -p &quot;${CPU}&quot; &quot;${genome}&quot; &quot;${genome}&quot;
 
 # map
 mkdir -p &quot;${bam_dir}&quot;
@@ -204,10 +205,25 @@ do
     infile=&quot;${fastq_dir}${i}&quot;
     outfile=&quot;${bam_dir}${i}.bam&quot;
     hisat2 -x &quot;${genome}&quot; -U &quot;${infile}&quot; --threads &quot;${CPU}&quot; --no-spliced-alignment --quiet \
-      --summary-file &quot;${outfile}.log&quot; | samtools view -b -q &quot;${Q}&quot; --threads &quot;${CPU}&quot; - \ 
-      | samtools sort -o &quot;${outfile}&quot; - 
+      --met-file &quot;${outfile}.log&quot; | samtools view -b -q &quot;${Q}&quot; --threads &quot;${CPU}&quot; - | samtools sort -o &quot;${outfile}&quot; - 
     samtools index &quot;${outfile}&quot;
 done</code></pre>
+<pre><code>## [bam_sort_core] merging from 19 files...
+## [bam_sort_core] merging from 20 files...
+## [bam_sort_core] merging from 20 files...
+## [bam_sort_core] merging from 20 files...
+## [bam_sort_core] merging from 19 files...
+## [bam_sort_core] merging from 20 files...
+## [bam_sort_core] merging from 10 files...
+## [bam_sort_core] merging from 12 files...
+## [bam_sort_core] merging from 9 files...
+## [bam_sort_core] merging from 10 files...
+## [bam_sort_core] merging from 13 files...
+## [bam_sort_core] merging from 12 files...</code></pre>
+<p>Notes</p>
+<ul>
+<li>multimapping and poorly mapped reads were removed from further analysis (MAPQ &lt;10)</li>
+</ul>
 <hr />
 <pre class="r"><code>sessionInfo()</code></pre>
 <pre><code>## R version 3.2.3 (2015-12-10)

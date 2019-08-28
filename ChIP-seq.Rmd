@@ -94,7 +94,7 @@ Notes
 
 * multimapping and poorly mapped reads were removed from further analysis (MAPQ <10)
 
-#Create normalized BigWig files
+#Create genome coverage files
 
 ```{bash}
 deeptools --version
@@ -108,23 +108,60 @@ ls -1 "${bam_dir}" | grep ".bam$" > "${bam_file_list}"
 mapfile -t bam_files < "${bam_file_list}"
 sample_count=$(expr "${#bam_files[@]}" / 2)
 
-# check visually in IGV whether the input coverage is even across the genome
+# get genome coverage for all input files -> inspect in IGV for irregularities
 for i in $(eval echo "{1..$sample_count}");
 do
 	input_file="${bam_dir}${bam_files[${i}-1]}"
 	bamCoverage -p "${CPU}" -b "${input_file}" -o "${coverage_dir}${bam_files[${i}-1]}.bw"
 done
 
-
+# normalize IP samples to the corresponding input samples (read count-normalized ratio)
 for i in $(eval echo "{1..$sample_count}");
 do
 	input_file="${bam_dir}${bam_files[${i}-1]}"
 	ip_file="${bam_dir}${bam_files[${i}+${sample_count}-1]}"
-	bamCompare --operation ratio --binSize 1 -p "${CPU}" --scaleFactorsMethod readCount \ 
-	  -b1 "${ip_file}" \
-	  -b2 "${input_file}" \
-	  -o "${coverage_dir}${bam_files[${i}+${sample_count}-1]}.input-normalized.bw"
+	bamCompare --operation ratio --binSize 1 -p "${CPU}" --scaleFactorsMethod readCount -b1 "${ip_file}" -b2 "${input_file}" -o "${coverage_dir}${bam_files[${i}+${sample_count}-1]}${normalized_suffix}.bw"
 done
+
+# average replicate data
+normalized_ko_bw_files=`ls -1 -d "${coverage_dir}"/* | grep "${normalized_suffix}" | grep "${ko}"`
+normalized_wt_bw_files=`ls -1 -d "${coverage_dir}"/* | grep "${normalized_suffix}" | grep "${wt}"`
+multiBigwigSummary bins --outRawCounts "${coverage_dir}${ko}${normalized_suffix}.tab" --binSize 1 -p "${CPU}" -o "${coverage_dir}${ko}${normalized_suffix}.npz" -b ${normalized_ko_bw_files}
+multiBigwigSummary bins --outRawCounts "${coverage_dir}${wt}${normalized_suffix}.tab" --binSize 1 -p "${CPU}" -o "${coverage_dir}${wt}${normalized_suffix}.npz" -b ${normalized_wt_bw_files}
+```
+
+Notes on input samples
+
+* 16S and 23S rRNA genes showed increased coverage
+
+* no coverage on rna"X" and rrn"X" genes
+
+```{r}
+coverage_dir <- './coverage/'
+ko <- "KO"
+wt <- "wt"
+
+coverage_ko <- read.delim(file = list.files(coverage_dir, full.names = TRUE,
+                                            pattern = paste0('.*', ko, '.*tab$')),
+                          stringsAsFactors = FALSE)
+coverage_ko <- cbind(coverage_ko[, 1:3], rowMeans(coverage_ko[, 4:ncol(coverage_ko)], na.rm = TRUE))
+colnames(coverage_ko) <- c('chr', 'start', 'end', 'coverage')
+coverage_ko <- coverage_ko[order(coverage_ko$start), ]
+writeLines('track type=bedGraph name=KO', 
+           con = paste0(coverage_dir, 'KO.input-normalized.mean.bedgraph'))
+write.table(coverage_ko, file = paste0(coverage_dir, 'KO.input-normalized.mean.bedgraph'), 
+            quote = FALSE, append = TRUE, sep = '\t', row.names = FALSE, col.names = FALSE)
+
+coverage_wt <- read.delim(file = list.files(coverage_dir, full.names = TRUE,
+                                            pattern = paste0('.*', wt, '.*tab$')),
+                          stringsAsFactors = FALSE)
+coverage_wt <- cbind(coverage_wt[, 1:3], rowMeans(coverage_wt[, 4:ncol(coverage_wt)], na.rm = TRUE))
+colnames(coverage_wt) <- colnames(coverage_ko)
+coverage_wt <- coverage_wt[order(coverage_wt$start), ]
+writeLines('track type=bedGraph name=wt', 
+           con = paste0(coverage_dir, 'wt.input-normalized.mean.bedgraph'))
+write.table(coverage_wt, file = paste0(coverage_dir, 'wt.input-normalized.mean.bedgraph'), 
+            quote = FALSE, append = TRUE, sep = '\t', row.names = FALSE, col.names = FALSE)
 ```
 
 ***

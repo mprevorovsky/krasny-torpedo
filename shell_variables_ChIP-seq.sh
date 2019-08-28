@@ -20,4 +20,9 @@ Q=10
 coverage_dir="./coverage/"
 # file containing the list of all BAM files to be processed
 bam_file_list="BAM_files_ChIP-seq"
-
+# filename extension for input-normalized genome coverage files
+normalized_suffix=".input-normalized"
+# string contained in KO sample file names
+ko="KO"
+# string contained in WT sample file names
+wt="wt"

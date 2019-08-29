@@ -15,6 +15,19 @@ Variables for shell scripts are stored in the file "shell_variables_ChIP-seq.sh"
 cat shell_variables_ChIP-seq.sh
 ```
 
+#Genome sequence and annotation
+
+* Bacillus subtilis subps. subtilis strain 168 chromosome, complete genome (gi|255767013|ref|NC_000964|); https://www.ncbi.nlm.nih.gov/nuccore/NC_000964
+
+* genome annotation (GFF): genome-build-accession NCBI_Assembly:GCF_000009045.1; ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF_000009045.1_ASM904v1 downloaded 15/Nov/2015
+
+The original GFF file has been modified:
+1) the chromosome name was changed from NC_000964.3 to gi|255767013|ref|NC_000964.3| in order to match the chromosome name in the genome FASTA file
+
+2) the strand orientation was swapped for all features to get correct read counts from stranded RNA-seq libraries
+
+3) the summarizeOverlaps function works with gene names (attribute Name), which for some reason did not work with this GFF file (zero counts were reported for about 1/2 of all genes). However, the unique systematic names (attribute locus_tag) work correctly. Therefore the values of Name and locus_tag were swapped
+
 #QC of sequence reads
 
 Technical quality of library construction and sequencing run was tested using fastQC
@@ -56,13 +69,7 @@ Results of QC:
 
 * cleaning/trimming of reads is not needed
 
-#Read mapping
-
-Genome sequence and annotation:
-
-* Bacillus subtilis subps. subtilis strain 168 chromosome, complete genome (gi|255767013|ref|NC_000964|); https://www.ncbi.nlm.nih.gov/nuccore/NC_000964
-
-* genome annotation (GFF): genome-build-accession NCBI_Assembly:GCF_000009045.1; ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF_000009045.1_ASM904v1 downloaded 15/Nov/2015
+#Read mapping into B. subtilis genome
 
 ```{bash}
 hisat2 --version
@@ -162,6 +169,127 @@ writeLines('track type=bedGraph name=wt',
            con = paste0(coverage_dir, 'wt.input-normalized.mean.bedgraph'))
 write.table(coverage_wt, file = paste0(coverage_dir, 'wt.input-normalized.mean.bedgraph'), 
             quote = FALSE, append = TRUE, sep = '\t', row.names = FALSE, col.names = FALSE)
+```
+
+#Create coverage plots for selected genes
+
+Plots produced manually from IGV 2.6.3
+
+```{bash}
+source shell_variables_ChIP-seq.sh
+
+mkdir -p "${image_dir}"
+```
+
+# Calculate per-gene coverage
+
+```{r, include=FALSE}
+# functions for GFF manipulation were obtained from:
+# https://stat.ethz.ch/pipermail/bioconductor/2008-October/024669.html
+getAttributeField <- function (x, field, attrsep = ";") {
+  s = strsplit(x, split = attrsep, fixed = TRUE)
+  sapply(s, function(atts) {
+    a = strsplit(atts, split = "=", fixed = TRUE)
+    m = match(field, sapply(a, "[", 1))
+    if (!is.na(m)) {
+      rv = a[[m]][2]
+    }
+    else {
+      rv = as.character(NA)
+    }
+    return(rv)
+  })
+}
+
+gffRead <- function(gffFile, nrows = -1) {
+  cat("Reading ", gffFile, ": ", sep="")
+  gff = read.table(gffFile, sep="\t", as.is=TRUE, quote="",
+                   header=FALSE, comment.char="#", nrows = nrows,
+                   colClasses=c("character", "character", "character", "integer",  
+                                "integer",
+                                "character", "character", "character", "character"))
+  colnames(gff) = c("seqname", "source", "feature", "start", "end",
+                    "score", "strand", "frame", "attributes")
+  cat("found", nrow(gff), "rows with classes:",
+      paste(sapply(gff, class), collapse=", "), "\n")
+  stopifnot(!any(is.na(gff$start)), !any(is.na(gff$end)))
+  return(gff)
+}
+```
+
+```{r}
+gff_file <- './genome/GCF_000009045.1_ASM904v1_genomic_reverse_SYS.gff'
+gff <- gffRead(gff_file)
+gff <- gff[gff$feature == 'gene', ]
+gff$locus_tag <- getAttributeField(gff$attributes, field = 'locus_tag') # trivial gene name
+gff$Name <- getAttributeField(gff$attributes, field = 'Name') # systematic gene ID (BSUxxxxx)
+
+gene_coverage <- data.frame(seqname = gff$seqname, 
+                            start = as.numeric(gff$start),
+                            end = as.numeric(gff$end), 
+                            locus_tag = gff$locus_tag, 
+                            Name = gff$Name, 
+                            cov_wt = as.numeric(NA), 
+                            cov_ko = as.numeric(NA),
+                            stringsAsFactors = FALSE)
+for (i in 1:nrow(gene_coverage)){
+  gene_length_kb <- (gene_coverage[i, 'end'] - gene_coverage[i, 'start'] + 1) / 1000
+  gene_coverage[i, 'cov_wt'] <- 
+    sum(coverage_wt[which(coverage_wt$chr == gene_coverage[i, 'seqname'] &
+                          coverage_wt$start + 1 >=  gene_coverage[i, 'start'] &
+                          coverage_wt$end <= gene_coverage[i, 'end']), 'coverage']) / gene_length_kb
+  
+  gene_coverage[i, 'cov_ko'] <- 
+    sum(coverage_ko[which(coverage_ko$chr == gene_coverage[i, 'seqname'] &
+                          coverage_ko$start + 1 >=  gene_coverage[i, 'start'] &
+                          coverage_ko$end <= gene_coverage[i, 'end']), 'coverage']) / gene_length_kb
+#  print(nrow(gene_coverage) - i)
+}
+write.table(gene_coverage, file = paste0(coverage_dir, 'ChIP-seq_gene_coverage.txt'),
+            quote = FALSE, sep = '\t', row.names = FALSE, col.names = TRUE)
+```
+
+#Comparisons of ChIP-seq and RNA-seq data
+
+```{r}
+load('/home/martin/Drive/lab/experiments/PřFUK_postdoc/18 - RNA Pol mutants in B. subtilis/count_tables.rda')
+pseudocount <- 0
+pdf('./images/Figure2.pdf')
+
+par(mar = c(5, 5, 5, 5), lwd = 2, cex = 1.5)
+options(scipen = -1)
+limits <- range(counts.len.norm) + pseudocount
+
+plot(counts.len.norm[, 'ko.chip'] + pseudocount, counts.len.norm[, 'ko.rna'] + pseudocount,
+     main = '',
+     xlab = '',
+     ylab = '',
+     log = 'xy', xlim = c(1, limits[2]), ylim = c(0.01, limits[2]),
+     type = 'n')
+abline(v = c(1, 10, 100, 1000, 10000), h = c(0.01, 1, 100, 10000), col = 'gray')
+par(new = TRUE)
+plot(counts.len.norm[, 'ko.chip'] + pseudocount, counts.len.norm[, 'ko.rna'] + pseudocount,
+     main = 'rnjA KO\npooled 3 replicates\n(coloured by expression in WT)',
+     xlab = 'RNAP occupancy at genes [RPKM]',
+     ylab = 'gene RNA abundance [RPKM]',
+     log = 'xy', xlim = c(1, limits[2]), ylim = c(0.01, limits[2]), pch = 20,
+     col = rbPal(100)[as.numeric(cut(log2(counts.len.norm[, 'wt.rna'] + 0.01), breaks = 100))])
+
+plot(counts.len.norm[, 'wt.chip'] + pseudocount, counts.len.norm[, 'wt.rna'] + pseudocount,
+     main = '',
+     xlab = '',
+     ylab = '',
+     log = 'xy', xlim = c(1, limits[2]), ylim = c(0.01, limits[2]),
+     type = 'n')
+abline(v = c(1, 10, 100, 1000, 10000), h = c(0.01, 1, 100, 10000), col = 'gray')
+par(new = TRUE)
+plot(counts.len.norm[, 'wt.chip'] + pseudocount, counts.len.norm[, 'wt.rna'] + pseudocount,
+     main = 'WT\npooled 3 replicates\n(coloured by expression in WT)',
+     xlab = 'RNAP occupancy at genes [RPKM]',
+     ylab = 'gene RNA abundance [RPKM]',
+     log = 'xy', xlim = c(1, limits[2]), ylim = c(0.01, limits[2]), pch = 20,
+     col = rbPal(100)[as.numeric(cut(log2(counts.len.norm[, 'wt.rna'] + 0.01), breaks = 100))])
+dev.off()
 ```
 
 ***

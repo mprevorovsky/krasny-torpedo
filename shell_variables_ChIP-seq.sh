@@ -26,3 +26,5 @@ normalized_suffix=".input-normalized"
 ko="KO"
 # string contained in WT sample file names
 wt="wt"
+# images directry
+image_dir="./images/"

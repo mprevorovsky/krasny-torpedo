@@ -1,5 +1,5 @@
 ---
-title: "ChIP-seq analyses"
+title: "RNA-seq analyses"
 output: html_document
 ---
 
@@ -9,10 +9,10 @@ library(fastqcr)
 library(dplyr)
 ```
 
-Variables for shell scripts are stored in the file "shell_variables_ChIP-seq.sh" and can be modified as needed:
+Variables for shell scripts are stored in the file "shell_variables_RNA-seq.sh" and can be modified as needed:
 
 ```{bash variables}
-cat shell_variables_ChIP-seq.sh
+cat shell_variables_RNA-seq.sh
 ```
 
 #Genome sequence and annotation
@@ -37,7 +37,7 @@ fastqc --version
 ```
 
 ```{bash, eval=FALSE}
-source shell_variables_ChIP-seq.sh
+source shell_variables_RNA-seq.sh
 
 mkdir -p "${fastQC_dir}"
 ls -1 "${fastq_dir}" | grep "${fastq_file_ext}" > "${fastq_file_list}"
@@ -51,19 +51,19 @@ done
 Summarize fastQC results
 
 ```{r, message=FALSE, eval=FALSE}
-fastQC_dir <- './fastQC_ChIP-seq/'
+fastQC_dir <- './fastQC_RNA-seq/'
 qc <- qc_aggregate(fastQC_dir, progressbar = FALSE)
 qc_report(qc.path = fastQC_dir, result.file = paste0(fastQC_dir, 'fastQC-summary'),
-          experiment = 'RNAP ChIP-seq in Bacillus subtilis (torpedo)')
+          experiment = 'rnjA wt/KO RNA-seq in Bacillus subtilis (torpedo)')
 ```
 
 Results of QC:
 
-* 50 nt reads
+* 51 nt reads
 
-* 45-48M reads per input sample, 31-40M reads per IP sample
+* 14-28M reads per sample
 
-* no adapter contamination
+* some samples contain overrepresented sequences but no adapter contamination detected
 
 * good read quality scores
 
@@ -76,8 +76,8 @@ hisat2 --version
 samtools --version
 ```
 
-```{bash, eval=FALSE}
-source shell_variables_ChIP-seq.sh
+```{bash, eval=TRUE}
+source shell_variables_RNA-seq.sh
 
 # build HISAT2 index
 hisat2-build --quiet -p "${CPU}" "${genome}" "${genome}"
@@ -90,7 +90,7 @@ do
 	infile="${fastq_dir}${i}"
 	outfile="${bam_dir}${i}.bam"
 	echo "${outfile}"
-	hisat2 -x "${genome}" -U "${infile}" --threads "${CPU}" --no-spliced-alignment --quiet --met-file "${outfile}.log" | samtools view -b -q "${Q}" --threads "${CPU}" - | samtools sort -o "${outfile}" - 
+	hisat2 -x "${genome}" -U "${infile}" --threads "${CPU}" --no-spliced-alignment --rna-strandness R --quiet --met-file "${outfile}.log" | samtools view -b -q "${Q}" --threads "${CPU}" - | samtools sort -o "${outfile}" - 
 	samtools index "${outfile}"
 	samtools view -c --threads "${CPU}" "${outfile}"
 done
@@ -107,26 +107,18 @@ deeptools --version
 ```
 
 ```{bash}
-source shell_variables_ChIP-seq.sh
+source shell_variables_RNA-seq.sh
 
 mkdir -p "${coverage_dir}"
 ls -1 "${bam_dir}" | grep ".bam$" > "${bam_file_list}"
 mapfile -t bam_files < "${bam_file_list}"
-sample_count=$(expr "${#bam_files[@]}" / 2)
+sample_count="${#bam_files[@]}"
 
 # get genome coverage for all input files -> inspect in IGV for irregularities
 for i in $(eval echo "{1..$sample_count}");
 do
 	input_file="${bam_dir}${bam_files[${i}-1]}"
 	bamCoverage -p "${CPU}" -b "${input_file}" -o "${coverage_dir}${bam_files[${i}-1]}.bw"
-done
-
-# normalize IP samples to the corresponding input samples (read count-normalized ratio)
-for i in $(eval echo "{1..$sample_count}");
-do
-	input_file="${bam_dir}${bam_files[${i}-1]}"
-	ip_file="${bam_dir}${bam_files[${i}+${sample_count}-1]}"
-	bamCompare --operation ratio --binSize 1 -p "${CPU}" --scaleFactorsMethod readCount -b1 "${ip_file}" -b2 "${input_file}" -o "${coverage_dir}${bam_files[${i}+${sample_count}-1]}${normalized_suffix}.bw"
 done
 
 # average replicate data
@@ -143,7 +135,7 @@ Notes on input samples
 * no coverage on rna"X" and rrn"X" genes
 
 ```{r}
-coverage_dir <- './coverage_ChIP-seq/'
+coverage_dir <- './coverage_RNA-seq/'
 ko <- "KO"
 wt <- "wt"
 
@@ -175,7 +167,7 @@ write.table(coverage_wt, file = paste0(coverage_dir, 'wt.input-normalized.mean.b
 Plots produced manually from IGV 2.6.3
 
 ```{bash}
-source shell_variables_ChIP-seq.sh
+source shell_variables_RNA-seq.sh
 
 mkdir -p "${image_dir}"
 ```

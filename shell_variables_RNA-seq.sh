@@ -17,12 +17,10 @@ bam_dir="./BAM_RNA-seq/"
 # minimum MAPQ threshold for inclusion in the final BAM file
 Q=10
 # output directory for genome coverage data
-coverage_dir="./coverage_ChIP-seq/"
+coverage_dir="./coverage_RNA-seq/"
 # file containing the list of all BAM files to be processed
 bam_file_list="BAM_files_RNA-seq"
 # string contained in KO sample file names
 ko="KO"
 # string contained in WT sample file names
 wt="WT"
-# images directry
-image_dir="./images/"

@@ -19,14 +19,15 @@ cat shell_variables_ChIP-seq.sh
 
 * Bacillus subtilis subps. subtilis strain 168 chromosome, complete genome (gi|255767013|ref|NC_000964|); https://www.ncbi.nlm.nih.gov/nuccore/NC_000964
 
-* genome annotation (GFF): genome-build-accession NCBI_Assembly:GCF_000009045.1; ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF_000009045.1_ASM904v1 downloaded 15/Nov/2015
+* genome annotation (GFF): genome-build-accession NCBI_Assembly:GCF_000009045.1; ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF_000009045.1_ASM904v1 (downloaded 15/Nov/2015)
 
 The original GFF file has been modified:
+
 1) the chromosome name was changed from NC_000964.3 to gi|255767013|ref|NC_000964.3| in order to match the chromosome name in the genome FASTA file
 
 2) the strand orientation was swapped for all features to get correct read counts from stranded RNA-seq libraries
 
-3) the summarizeOverlaps function works with gene names (attribute Name), which for some reason did not work with this GFF file (zero counts were reported for about 1/2 of all genes). However, the unique systematic names (attribute locus_tag) work correctly. Therefore the values of Name and locus_tag were swapped
+3) the `summarizeOverlaps()` function works with gene names (attribute Name), which for some reason did not work with this GFF file (zero counts were reported for about 1/2 of all genes). However, the unique systematic names (attribute locus_tag) work correctly. Therefore the values of Name and locus_tag were swapped
 
 #QC of sequence reads
 
@@ -106,7 +107,7 @@ Notes
 deeptools --version
 ```
 
-```{bash}
+```{bash, eval=FALSE}
 source shell_variables_ChIP-seq.sh
 
 mkdir -p "${coverage_dir}"
@@ -142,7 +143,7 @@ Notes on input samples
 
 * no coverage on rna"X" and rrn"X" genes
 
-```{r}
+```{r, eval=FALSE}
 coverage_dir <- './coverage_ChIP-seq/'
 ko <- "KO"
 wt <- "wt"
@@ -172,13 +173,13 @@ write.table(coverage_wt, file = paste0(coverage_dir, 'wt.input-normalized.mean.b
 
 #Create coverage plots for selected genes
 
-Plots produced manually from IGV 2.6.3
-
 ```{bash}
 source shell_variables_ChIP-seq.sh
 
 mkdir -p "${image_dir}"
 ```
+
+Plots produced manually from IGV 2.6.3
 
 # Calculate per-gene coverage
 
@@ -216,7 +217,7 @@ gffRead <- function(gffFile, nrows = -1) {
 }
 ```
 
-```{r}
+```{r, eval=FALSE}
 gff_file <- './genome/GCF_000009045.1_ASM904v1_genomic_reverse_SYS.gff'
 gff <- gffRead(gff_file)
 gff <- gff[gff$feature == 'gene', ]
@@ -246,55 +247,6 @@ for (i in 1:nrow(gene_coverage)){
 }
 write.table(gene_coverage, file = paste0(coverage_dir, 'ChIP-seq_gene_coverage.txt'),
             quote = FALSE, sep = '\t', row.names = FALSE, col.names = TRUE)
-```
-
-#Comparisons of ChIP-seq and RNA-seq data
-
-```{r}
-#library(RColorBrewer)
-gene_coverage <- gene_coverage[gene_coverage$Name %in% rownames(counts.len.norm), ]
-gene_coverage <- gene_coverage[order(gene_coverage$Name), ]
-
-load('/home/martin/Drive/lab/experiments/PřFUK_postdoc/18 - RNA Pol mutants in B. subtilis/count_tables.rda')
-pseudocount <- 0
-pdf('./images/Figure2.pdf')
-
-par(mar = c(5, 5, 5, 5), lwd = 2, cex = 1.5)
-options(scipen = -1)
-#limits <- range(counts.len.norm) + pseudocount
-limits <- range(gene_coverage[, c('cov_wt', 'cov_ko')]) + pseudocount
-rbPal <- colorRampPalette(c('yellow', 'red'))
-
-plot(gene_coverage$cov_ko, counts.len.norm[, 'ko.rna'] + pseudocount,
-     main = '',
-     xlab = '',
-     ylab = '',
-     log = 'xy', xlim = c(10, limits[2]), ylim = c(0.01, limits[2]),
-     type = 'n')
-abline(v = c(1, 10, 100, 1000, 10000), h = c(0.01, 1, 100, 10000), col = 'gray')
-par(new = TRUE)
-plot(gene_coverage$cov_ko, counts.len.norm[, 'ko.rna'] + pseudocount,
-     main = 'rnjA KO\npooled 3 replicates\n(coloured by expression in WT)',
-     xlab = 'RNAP occupancy at genes [norm. cov.]',
-     ylab = 'gene RNA abundance [RPKM]',
-     log = 'xy', xlim = c(10, limits[2]), ylim = c(0.01, limits[2]), pch = 20,
-     col = rbPal(100)[as.numeric(cut(log2(counts.len.norm[, 'wt.rna'] + 0.01), breaks = 100))])
-
-plot(gene_coverage$cov_wt, counts.len.norm[, 'wt.rna'] + pseudocount,
-     main = '',
-     xlab = '',
-     ylab = '',
-     log = 'xy', xlim = c(10, limits[2]), ylim = c(0.01, limits[2]),
-     type = 'n')
-abline(v = c(1, 10, 100, 1000, 10000), h = c(0.01, 1, 100, 10000), col = 'gray')
-par(new = TRUE)
-plot(gene_coverage$cov_wt, counts.len.norm[, 'wt.rna'] + pseudocount,
-     main = 'WT\npooled 3 replicates\n(coloured by expression in WT)',
-     xlab = 'RNAP occupancy at genes [norm. cov.]',
-     ylab = 'gene RNA abundance [RPKM]',
-     log = 'xy', xlim = c(10, limits[2]), ylim = c(0.01, limits[2]), pch = 20,
-     col = rbPal(100)[as.numeric(cut(log2(counts.len.norm[, 'wt.rna'] + 0.01), breaks = 100))])
-dev.off()
 ```
 
 ***

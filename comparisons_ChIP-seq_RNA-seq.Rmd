@@ -1,5 +1,5 @@
 ---
-title: "RNA-seq analyses"
+title: "ChIP-seq analyses"
 output: html_document
 ---
 
@@ -7,17 +7,12 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(fastqcr)
 library(dplyr)
-library(GenomicAlignments)
-library(GenomicFeatures)
-library(DESeq2)
-library(RColorBrewer)
-library(gplots)
 ```
 
-Variables for shell scripts are stored in the file "shell_variables_RNA-seq.sh" and can be modified as needed:
+Variables for shell scripts are stored in the file "shell_variables_ChIP-seq.sh" and can be modified as needed:
 
 ```{bash variables}
-cat shell_variables_RNA-seq.sh
+cat shell_variables_ChIP-seq.sh
 ```
 
 #Genome sequence and annotation
@@ -43,7 +38,7 @@ fastqc --version
 ```
 
 ```{bash, eval=FALSE}
-source shell_variables_RNA-seq.sh
+source shell_variables_ChIP-seq.sh
 
 mkdir -p "${fastQC_dir}"
 ls -1 "${fastq_dir}" | grep "${fastq_file_ext}" > "${fastq_file_list}"
@@ -57,19 +52,19 @@ done
 Summarize fastQC results
 
 ```{r, message=FALSE, eval=FALSE}
-fastQC_dir <- './fastQC_RNA-seq/'
+fastQC_dir <- './fastQC_ChIP-seq/'
 qc <- qc_aggregate(fastQC_dir, progressbar = FALSE)
 qc_report(qc.path = fastQC_dir, result.file = paste0(fastQC_dir, 'fastQC-summary'),
-          experiment = 'rnjA wt/KO RNA-seq in Bacillus subtilis (torpedo)')
+          experiment = 'RNAP ChIP-seq in Bacillus subtilis (torpedo)')
 ```
 
 Results of QC:
 
-* 51 nt reads
+* 50 nt reads
 
-* 14-28M reads per sample
+* 45-48M reads per input sample, 31-40M reads per IP sample
 
-* some samples contain overrepresented sequences but no adapter contamination detected
+* no adapter contamination
 
 * good read quality scores
 
@@ -83,7 +78,7 @@ samtools --version
 ```
 
 ```{bash, eval=FALSE}
-source shell_variables_RNA-seq.sh
+source shell_variables_ChIP-seq.sh
 
 # build HISAT2 index
 hisat2-build --quiet -p "${CPU}" "${genome}" "${genome}"
@@ -96,7 +91,7 @@ do
 	infile="${fastq_dir}${i}"
 	outfile="${bam_dir}${i}.bam"
 	echo "${outfile}"
-	hisat2 -x "${genome}" -U "${infile}" --threads "${CPU}" --no-spliced-alignment --rna-strandness R --quiet --met-file "${outfile}.log" | samtools view -b -q "${Q}" --threads "${CPU}" - | samtools sort -o "${outfile}" - 
+	hisat2 -x "${genome}" -U "${infile}" --threads "${CPU}" --no-spliced-alignment --quiet --met-file "${outfile}.log" | samtools view -b -q "${Q}" --threads "${CPU}" - | samtools sort -o "${outfile}" - 
 	samtools index "${outfile}"
 	samtools view -c --threads "${CPU}" "${outfile}"
 done
@@ -112,32 +107,46 @@ Notes
 deeptools --version
 ```
 
-```{bash, eval=FALSE}
-source shell_variables_RNA-seq.sh
+```{bash}
+source shell_variables_ChIP-seq.sh
 
 mkdir -p "${coverage_dir}"
 ls -1 "${bam_dir}" | grep ".bam$" > "${bam_file_list}"
 mapfile -t bam_files < "${bam_file_list}"
-sample_count="${#bam_files[@]}"
+sample_count=$(expr "${#bam_files[@]}" / 2)
 
-# get genome coverage for all BAM files -> inspect in IGV for irregularities
+# get genome coverage for all input files -> inspect in IGV for irregularities
 for i in $(eval echo "{1..$sample_count}");
 do
 	input_file="${bam_dir}${bam_files[${i}-1]}"
-	bamCoverage --normalizeUsing CPM --binSize 1 -p "${CPU}" -b "${input_file}" -o "${coverage_dir}${bam_files[${i}-1]}.bw"
+	bamCoverage -p "${CPU}" -b "${input_file}" -o "${coverage_dir}${bam_files[${i}-1]}.bw"
+done
+
+# normalize IP samples to the corresponding input samples (read count-normalized ratio)
+for i in $(eval echo "{1..$sample_count}");
+do
+	input_file="${bam_dir}${bam_files[${i}-1]}"
+	ip_file="${bam_dir}${bam_files[${i}+${sample_count}-1]}"
+	bamCompare --operation ratio --binSize 1 -p "${CPU}" --scaleFactorsMethod readCount -b1 "${ip_file}" -b2 "${input_file}" -o "${coverage_dir}${bam_files[${i}+${sample_count}-1]}${normalized_suffix}.bw"
 done
 
 # average replicate data
-ko_bw_files=`ls -1 -d "${coverage_dir}"/* | grep "${ko}"`
-wt_bw_files=`ls -1 -d "${coverage_dir}"/* | grep "${wt}"`
-multiBigwigSummary bins --outRawCounts "${coverage_dir}${ko}.tab" --binSize 1 -p "${CPU}" -o "${coverage_dir}${ko}.npz" -b ${ko_bw_files}
-multiBigwigSummary bins --outRawCounts "${coverage_dir}${wt}.tab" --binSize 1 -p "${CPU}" -o "${coverage_dir}${wt}.npz" -b ${wt_bw_files}
+normalized_ko_bw_files=`ls -1 -d "${coverage_dir}"/* | grep "${normalized_suffix}" | grep "${ko}"`
+normalized_wt_bw_files=`ls -1 -d "${coverage_dir}"/* | grep "${normalized_suffix}" | grep "${wt}"`
+multiBigwigSummary bins --outRawCounts "${coverage_dir}${ko}${normalized_suffix}.tab" --binSize 1 -p "${CPU}" -o "${coverage_dir}${ko}${normalized_suffix}.npz" -b ${normalized_ko_bw_files}
+multiBigwigSummary bins --outRawCounts "${coverage_dir}${wt}${normalized_suffix}.tab" --binSize 1 -p "${CPU}" -o "${coverage_dir}${wt}${normalized_suffix}.npz" -b ${normalized_wt_bw_files}
 ```
 
-```{r, eval=FALSE}
-coverage_dir <- './coverage_RNA-seq/'
+Notes on input samples
+
+* 16S and 23S rRNA genes showed increased coverage
+
+* no coverage on rna"X" and rrn"X" genes
+
+```{r}
+coverage_dir <- './coverage_ChIP-seq/'
 ko <- "KO"
-wt <- "WT"
+wt <- "wt"
 
 coverage_ko <- read.delim(file = list.files(coverage_dir, full.names = TRUE,
                                             pattern = paste0('.*', ko, '.*tab$')),
@@ -146,8 +155,8 @@ coverage_ko <- cbind(coverage_ko[, 1:3], rowMeans(coverage_ko[, 4:ncol(coverage_
 colnames(coverage_ko) <- c('chr', 'start', 'end', 'coverage')
 coverage_ko <- coverage_ko[order(coverage_ko$start), ]
 writeLines('track type=bedGraph name=KO', 
-           con = paste0(coverage_dir, 'KO.mean.bedgraph'))
-write.table(coverage_ko, file = paste0(coverage_dir, 'KO.mean.bedgraph'), 
+           con = paste0(coverage_dir, 'KO.input-normalized.mean.bedgraph'))
+write.table(coverage_ko, file = paste0(coverage_dir, 'KO.input-normalized.mean.bedgraph'), 
             quote = FALSE, append = TRUE, sep = '\t', row.names = FALSE, col.names = FALSE)
 
 coverage_wt <- read.delim(file = list.files(coverage_dir, full.names = TRUE,
@@ -157,9 +166,19 @@ coverage_wt <- cbind(coverage_wt[, 1:3], rowMeans(coverage_wt[, 4:ncol(coverage_
 colnames(coverage_wt) <- colnames(coverage_ko)
 coverage_wt <- coverage_wt[order(coverage_wt$start), ]
 writeLines('track type=bedGraph name=wt', 
-           con = paste0(coverage_dir, 'wt.mean.bedgraph'))
-write.table(coverage_wt, file = paste0(coverage_dir, 'wt.mean.bedgraph'), 
+           con = paste0(coverage_dir, 'wt.input-normalized.mean.bedgraph'))
+write.table(coverage_wt, file = paste0(coverage_dir, 'wt.input-normalized.mean.bedgraph'), 
             quote = FALSE, append = TRUE, sep = '\t', row.names = FALSE, col.names = FALSE)
+```
+
+#Create coverage plots for selected genes
+
+Plots produced manually from IGV 2.6.3
+
+```{bash}
+source shell_variables_ChIP-seq.sh
+
+mkdir -p "${image_dir}"
 ```
 
 # Calculate per-gene coverage
@@ -198,7 +217,7 @@ gffRead <- function(gffFile, nrows = -1) {
 }
 ```
 
-```{r, eval=FALSE}
+```{r}
 gff_file <- './genome/GCF_000009045.1_ASM904v1_genomic_reverse_SYS.gff'
 gff <- gffRead(gff_file)
 gff <- gff[gff$feature == 'gene', ]
@@ -224,65 +243,59 @@ for (i in 1:nrow(gene_coverage)){
     sum(coverage_ko[which(coverage_ko$chr == gene_coverage[i, 'seqname'] &
                           coverage_ko$start + 1 >=  gene_coverage[i, 'start'] &
                           coverage_ko$end <= gene_coverage[i, 'end']), 'coverage']) / gene_length_kb
-  print(nrow(gene_coverage) - i)
+#  print(nrow(gene_coverage) - i)
 }
-write.table(gene_coverage, file = paste0(coverage_dir, 'RNA-seq_gene_coverage.txt'),
+write.table(gene_coverage, file = paste0(coverage_dir, 'ChIP-seq_gene_coverage.txt'),
             quote = FALSE, sep = '\t', row.names = FALSE, col.names = TRUE)
 ```
 
-#Analysis of differential gene expression
+#Comparisons of ChIP-seq and RNA-seq data
 
-```{r, eval=FALSE}
-# construct count table
-bam_dir <- './BAM_RNA-seq/'
-bam <- BamFileList(list.files(bam_dir, pattern = "\\.bam$", full.names = TRUE),
-                   asMates = FALSE,
-                   yieldSize = 100000)
-annot <- makeTxDbFromGFF(file = gff_file,
-                         format = "gff3",
-                         dataSource = 'NCBI_Assembly:GCF_000009045.1',
-                         organism = 'Bacillus subtilis subsp. subtilis str. 168',
-                         circ_seqs ="gi|255767013|ref|NC_000964.3|")
-se <- summarizeOverlaps(genes(annot),
-                      bam,
-                      mode = 'Union',
-                      singleEnd = TRUE,
-                      ignore.strand = FALSE)
+```{r}
+#library(RColorBrewer)
+gene_coverage <- gene_coverage[gene_coverage$Name %in% rownames(counts.len.norm), ]
+gene_coverage <- gene_coverage[order(gene_coverage$Name), ]
 
-# prepare summarized experiment metadata
-sampleInfo <- data.frame(cbind(NA, 
-                               list.files(bam_dir, full.names = TRUE, pattern = '.bam$'),
-                               c('KO', 'KO', 'KO', 'WT', 'WT', 'WT'),
-                               c(1, 2, 3, 1, 2, 3)))
-colnames(sampleInfo) <- c('sample', 'bam.file', 'genotype', 'run')
-sampleInfo$sample <- paste(sampleInfo$genotype, sampleInfo$run, sep = '_')
-colnames(se) <- sampleInfo$sample
-colData(se) <- cbind(colData(se), sampleInfo)
+load('/home/martin/Drive/lab/experiments/PřFUK_postdoc/18 - RNA Pol mutants in B. subtilis/count_tables.rda')
+pseudocount <- 0
+pdf('./images/Figure2.pdf')
 
-# diagnose the dataset and identify differentially expressed genes (DEGs)
-padj.threshold <- 0.05
-dds <- DESeqDataSet(se, design = ~ run + genotype)
-dds$genotype <- relevel(dds$genotype, 'WT')
-dds <- DESeq(dds)
+par(mar = c(5, 5, 5, 5), lwd = 2, cex = 1.5)
+options(scipen = -1)
+#limits <- range(counts.len.norm) + pseudocount
+limits <- range(gene_coverage[, c('cov_wt', 'cov_ko')]) + pseudocount
+rbPal <- colorRampPalette(c('yellow', 'red'))
 
-rld <- rlog(dds)
-sampleDist <- dist(t(assay(rld)))
-sampleDistMatrix <- as.matrix(sampleDist)
-colnames(sampleDistMatrix) <- NULL
-colours <- colorRampPalette(rev(brewer.pal(9, 'Blues')))(255)
-heatmap.2(sampleDistMatrix, trace = 'none', col = colours, mar = c(9, 9))
-print(plotPCA(rld, intgroup = 'genotype'))
+plot(gene_coverage$cov_ko, counts.len.norm[, 'ko.rna'] + pseudocount,
+     main = '',
+     xlab = '',
+     ylab = '',
+     log = 'xy', xlim = c(10, limits[2]), ylim = c(0.01, limits[2]),
+     type = 'n')
+abline(v = c(1, 10, 100, 1000, 10000), h = c(0.01, 1, 100, 10000), col = 'gray')
+par(new = TRUE)
+plot(gene_coverage$cov_ko, counts.len.norm[, 'ko.rna'] + pseudocount,
+     main = 'rnjA KO\npooled 3 replicates\n(coloured by expression in WT)',
+     xlab = 'RNAP occupancy at genes [norm. cov.]',
+     ylab = 'gene RNA abundance [RPKM]',
+     log = 'xy', xlim = c(10, limits[2]), ylim = c(0.01, limits[2]), pch = 20,
+     col = rbPal(100)[as.numeric(cut(log2(counts.len.norm[, 'wt.rna'] + 0.01), breaks = 100))])
 
-res <- results(dds, alpha = padj.threshold)
-summary(res)
-for (i in rownames(res)){
-  res[i, 7] <- gff[which(gff$Name == i), 'locus_tag']
-}
-colnames(res)[7] <- 'gene_name'
-write.csv(res, file = 'DESeq2results_rnjAKO_vs_WT.txt', quote = FALSE)
-res.sig <- res[which(res$padj <= padj.threshold), ]
-res.sig <- res.sig[order(res.sig$log2FoldChange), ]
-write.csv(res.sig, file = 'DESeq2results_rnjAKO_vs_WT.SIG.txt', quote = FALSE)
+plot(gene_coverage$cov_wt, counts.len.norm[, 'wt.rna'] + pseudocount,
+     main = '',
+     xlab = '',
+     ylab = '',
+     log = 'xy', xlim = c(10, limits[2]), ylim = c(0.01, limits[2]),
+     type = 'n')
+abline(v = c(1, 10, 100, 1000, 10000), h = c(0.01, 1, 100, 10000), col = 'gray')
+par(new = TRUE)
+plot(gene_coverage$cov_wt, counts.len.norm[, 'wt.rna'] + pseudocount,
+     main = 'WT\npooled 3 replicates\n(coloured by expression in WT)',
+     xlab = 'RNAP occupancy at genes [norm. cov.]',
+     ylab = 'gene RNA abundance [RPKM]',
+     log = 'xy', xlim = c(10, limits[2]), ylim = c(0.01, limits[2]), pch = 20,
+     col = rbPal(100)[as.numeric(cut(log2(counts.len.norm[, 'wt.rna'] + 0.01), breaks = 100))])
+dev.off()
 ```
 
 ***

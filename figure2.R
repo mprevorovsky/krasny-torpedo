@@ -1,7 +1,7 @@
 library(RColorBrewer)
-chip <- read.delim('./coverage_ChIP-seq/ChIP-seq_chip.txt', 
+chip <- read.delim('./coverage_ChIP-seq/ChIP-seq_gene_coverage.txt', 
                    sep = '\t', header = TRUE, stringsAsFactors = FALSE)
-rna <- read.delim('./coverage_RNA-seq/RNA-seq_chip.txt', 
+rna <- read.delim('./coverage_RNA-seq/RNA-seq_gene_coverage.txt', 
                    sep = '\t', header = TRUE, stringsAsFactors = FALSE)
 which(chip$Name != rna$Name)
 

@@ -296,13 +296,6 @@ writeLines('track type=bedGraph name=wt',
 write.table(coverage_wt, file = paste0(coverage_dir, 'wt.input-normalized.mean.bedgraph'), 
             quote = FALSE, append = TRUE, sep = '\t', row.names = FALSE, col.names = FALSE)</code></pre>
 </div>
-<div id="create-coverage-plots-for-selected-genes" class="section level1">
-<h1>Create coverage plots for selected genes</h1>
-<pre class="bash"><code>source shell_variables_ChIP-seq.sh
-
-mkdir -p &quot;${image_dir}&quot;</code></pre>
-<p>Plots produced manually from IGV 2.6.3</p>
-</div>
 <div id="calculate-per-gene-coverage" class="section level1">
 <h1>Calculate per-gene coverage</h1>
 <pre class="r"><code>gff_file &lt;- './genome/GCF_000009045.1_ASM904v1_genomic_reverse_SYS.gff'

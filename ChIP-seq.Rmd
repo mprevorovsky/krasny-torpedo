@@ -171,16 +171,6 @@ write.table(coverage_wt, file = paste0(coverage_dir, 'wt.input-normalized.mean.b
             quote = FALSE, append = TRUE, sep = '\t', row.names = FALSE, col.names = FALSE)
 ```
 
-#Create coverage plots for selected genes
-
-```{bash}
-source shell_variables_ChIP-seq.sh
-
-mkdir -p "${image_dir}"
-```
-
-Plots produced manually from IGV 2.6.3
-
 # Calculate per-gene coverage
 
 ```{r, include=FALSE}

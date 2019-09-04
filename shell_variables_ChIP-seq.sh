@@ -28,3 +28,5 @@ ko="KO"
 wt="wt"
 # images directry
 image_dir="./images/"
+# genome sequence and annotation folder
+genome_dir="./genome/"

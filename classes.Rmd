@@ -1,0 +1,127 @@
+---
+title: "Analysis of gene classes"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Variables for shell scripts are stored in the file "shell_variables_ChIP-seq.sh" and can be modified as needed:
+
+```{bash variables}
+cat shell_variables_ChIP-seq.sh
+```
+
+#Assign genes to classes based on RNAP occupancy and gene expression
+
+Gene classification criteria based on rnajA KO/WT comparison:
+
+* class I: >=120% RNAP occupancy (ChIP seq) and significantly upregulated (RNA-seq)
+
+* class II: 0-80% RNAP occupancy (ChIP seq) and significantly downregulated (RNA-seq)
+
+* class III: <120% RNAP occupancy in WT (ChIP seq) and significantly upregulated (RNA-seq)
+
+* class IV: >=120% RNAP occupancy (ChIP seq), and no significant change or significantly downregulated (RNA-seq)
+
+```{r}
+chip <- read.delim('./coverage_ChIP-seq/ChIP-seq_gene_coverage.txt', 
+                   sep = '\t', header = TRUE, stringsAsFactors = FALSE)
+chip <- cbind(chip, chip$cov_ko / chip$cov_wt)
+colnames(chip)[8] <- 'cov_ratio'
+rna <- read.csv('./DESeq2results_rnjAKO_vs_WT.txt', 
+                header = TRUE, stringsAsFactors = FALSE, row.names = 1)
+rna <- rna[!is.na(rna$log2FoldChange), ]
+chip <- chip[chip$Name %in% rownames(rna), ]
+rna <- rna[rownames(rna) %in% chip$Name, ]
+chip <- chip[order(chip$Name), ]
+rna <- rna[order(rownames(rna)), ]
+which(chip$Name != rownames(rna))
+data <- cbind(chip, rna[, c('log2FoldChange', 'padj')])
+
+padj.threshold <- 0.05  # False dicovery rate
+class_I <- data[which(data$cov_ratio >= 1.2 & 
+                      data$padj <= padj.threshold & data$log2FoldChange > 0), ]
+class_II <- data[which(data$cov_ratio <= 0.8 & 
+                       data$padj <= padj.threshold & data$log2FoldChange < 0), ]
+class_III <- data[which(data$cov_ratio < 1.2 & 
+                        data$padj <= padj.threshold & data$log2FoldChange > 0), ]
+class_IV <- data[which(data$cov_ratio >= 1.2 & 
+                         ((data$padj <= padj.threshold & data$log2FoldChange < 0) |
+                          data$padj > padj.threshold)), ]
+
+#pdf('./images/classes.pdf')
+x.lim <- range(data$cov_ratio, na.rm = TRUE, finite = TRUE)
+y.lim <- range(data$log2FoldChange, na.rm = TRUE, finite = TRUE)
+plot(data[data$Name %in% class_I$Name, 'cov_ratio'], 
+     data[data$Name %in% class_I$Name, 'log2FoldChange'],
+     log = 'x', xlim = x.lim, ylim = y.lim, 
+     xlab = 'RNAP occupancy', ylab = 'mRNA expression')
+points(data[data$Name %in% class_II$Name, 'cov_ratio'], 
+       data[data$Name %in% class_II$Name, 'log2FoldChange'], 
+       col = 'red')
+points(data[data$Name %in% class_III$Name, 'cov_ratio'], 
+       data[data$Name %in% class_III$Name, 'log2FoldChange'], 
+       col = 'blue')
+points(data[data$Name %in% class_IV$Name, 'cov_ratio'], 
+       data[data$Name %in% class_IV$Name, 'log2FoldChange'], 
+       col = 'green')
+legend(x = 'bottomright', legend = c('I', 'II', 'III', 'IV'), 
+       fill = c('black', 'red', 'blue', 'green'))
+#dev.off()
+
+# save class gene lists
+write.table(class_I[, c('Name', 'locus_tag', 'cov_wt', 'cov_ko', 'cov_ratio',
+                        'log2FoldChange', 'padj')], 
+            file = 'class_I.txt', quote = FALSE, sep = '\t', row.names = FALSE)
+write.table(class_II[, c('Name', 'locus_tag', 'cov_wt', 'cov_ko', 'cov_ratio',
+                        'log2FoldChange', 'padj')], 
+            file = 'class_II.txt', quote = FALSE, sep = '\t', row.names = FALSE)
+write.table(class_III[, c('Name', 'locus_tag', 'cov_wt', 'cov_ko', 'cov_ratio',
+                        'log2FoldChange', 'padj')], 
+            file = 'class_III.txt', quote = FALSE, sep = '\t', row.names = FALSE)
+write.table(class_IV[, c('Name', 'locus_tag', 'cov_wt', 'cov_ko', 'cov_ratio',
+                        'log2FoldChange', 'padj')], 
+            file = 'class_IV.txt', quote = FALSE, sep = '\t', row.names = FALSE)
+
+# produce class BED files
+write.table(cbind(class_I$seqname, class_I$start - 1, class_I$end),
+            file = './genome/class_I.bed', 
+            quote = FALSE, sep = '\t', row.names = FALSE, col.names = FALSE)
+write.table(cbind(class_II$seqname, class_II$start - 1, class_II$end),
+            file = './genome/class_II.bed', 
+            quote = FALSE, sep = '\t', row.names = FALSE, col.names = FALSE)
+write.table(cbind(class_III$seqname, class_III$start - 1, class_III$end),
+            file = './genome/class_III.bed', 
+            quote = FALSE, sep = '\t', row.names = FALSE, col.names = FALSE)
+write.table(cbind(class_IV$seqname, class_IV$start - 1, class_IV$end),
+            file = './genome/class_IV.bed', 
+            quote = FALSE, sep = '\t', row.names = FALSE, col.names = FALSE)
+```
+
+#Create heatmaps and metagene profiles of RNAP occupancy for each class
+
+The `bedGraphToBigWig` tool was downloaded from http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/
+on 2nd September 2019
+
+```{bash}
+deeptools --version
+```
+
+```{bash}
+source shell_variables_ChIP-seq.sh
+
+bedGraphToBigWig "${coverage_dir}wt.input-normalized.mean.bedgraph" "${genome_dir}chrom.sizes" "${coverage_dir}wt.input-normalized.mean.bw"
+bedGraphToBigWig "${coverage_dir}KO.input-normalized.mean.bedgraph" "${genome_dir}chrom.sizes" "${coverage_dir}KO.input-normalized.mean.bw"
+
+computeMatrix scale-regions -S "${coverage_dir}wt.input-normalized.mean.bw" "${coverage_dir}KO.input-normalized.mean.bw" -R "${genome_dir}class_I.bed" "${genome_dir}class_II.bed" "${genome_dir}class_III.bed" "${genome_dir}class_IV.bed" --beforeRegionStartLength 200 --regionBodyLength 1000 --afterRegionStartLength 200 --outFileName "${coverage_dir}class_heatmap_matrix.mat.gz" --outFileNameMatrix "${coverage_dir}class_heatmap_matrix.values.tab" --numberOfProcessors "${CPU}"
+
+plotHeatmap -m "${coverage_dir}class_heatmap_matrix.mat.gz" -out "${image_dir}Heatmap1.png" --colorMap Blues --zMax 2 --averageTypeSummaryPlot mean --labelRotation 45 --startLabel "ATG" --endLabel "stop" --regionsLabel "class I" "class II" "class III" "class IV" --samplesLabel "wt" "rnjA KO"
+```
+
+***
+
+```{r}
+sessionInfo()
+```

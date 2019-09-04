@@ -16,7 +16,7 @@ RNA-seq.html
 shell_variables_RNA-seq.sh
 
 ## gene classification based on RNAP occupancy and gene expression in rnjA KO
-**classes.Rmd**	- classification criteria and code
+**classes.Rmd**
 
 classes.html
 

@@ -156,7 +156,9 @@ $(document).ready(function () {
 ## # string contained in WT sample file names
 ## wt=&quot;wt&quot;
 ## # images directry
-## image_dir=&quot;./images/&quot;</code></pre>
+## image_dir=&quot;./images/&quot;
+## # genome sequence and annotation folder
+## genome_dir=&quot;./genome/&quot;</code></pre>
 <div id="assign-genes-to-classes-based-on-rnap-occupancy-and-gene-expression" class="section level1">
 <h1>Assign genes to classes based on RNAP occupancy and gene expression</h1>
 <p>Gene classification criteria based on rnajA KO/WT comparison:</p>
@@ -229,17 +231,55 @@ write.table(class_IV[, c('Name', 'locus_tag', 'cov_wt', 'cov_ko', 'cov_ratio',
 
 # produce class BED files
 write.table(cbind(class_I$seqname, class_I$start - 1, class_I$end),
-            file = 'class_I.bed', 
+            file = './genome/class_I.bed', 
             quote = FALSE, sep = '\t', row.names = FALSE, col.names = FALSE)
 write.table(cbind(class_II$seqname, class_II$start - 1, class_II$end),
-            file = 'class_II.bed', 
+            file = './genome/class_II.bed', 
             quote = FALSE, sep = '\t', row.names = FALSE, col.names = FALSE)
 write.table(cbind(class_III$seqname, class_III$start - 1, class_III$end),
-            file = 'class_III.bed', 
+            file = './genome/class_III.bed', 
             quote = FALSE, sep = '\t', row.names = FALSE, col.names = FALSE)
 write.table(cbind(class_IV$seqname, class_IV$start - 1, class_IV$end),
-            file = 'class_IV.bed', 
+            file = './genome/class_IV.bed', 
             quote = FALSE, sep = '\t', row.names = FALSE, col.names = FALSE)</code></pre>
+</div>
+<div id="create-heatmaps-and-metagene-profiles-of-rnap-occupancy-for-each-class" class="section level1">
+<h1>Create heatmaps and metagene profiles of RNAP occupancy for each class</h1>
+<p>The <code>bedGraphToBigWig</code> tool was downloaded from <a href="http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/" class="uri">http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64/</a> on 2nd September 2019</p>
+<pre class="bash"><code>deeptools --version</code></pre>
+<pre><code>## deeptools 3.3.0</code></pre>
+<pre class="bash"><code>source shell_variables_ChIP-seq.sh
+
+bedGraphToBigWig &quot;${coverage_dir}wt.input-normalized.mean.bedgraph&quot; &quot;${genome_dir}chrom.sizes&quot; &quot;${coverage_dir}wt.input-normalized.mean.bw&quot;
+bedGraphToBigWig &quot;${coverage_dir}KO.input-normalized.mean.bedgraph&quot; &quot;${genome_dir}chrom.sizes&quot; &quot;${coverage_dir}KO.input-normalized.mean.bw&quot;
+
+computeMatrix scale-regions -S &quot;${coverage_dir}wt.input-normalized.mean.bw&quot; &quot;${coverage_dir}KO.input-normalized.mean.bw&quot; -R &quot;${genome_dir}class_I.bed&quot; &quot;${genome_dir}class_II.bed&quot; &quot;${genome_dir}class_III.bed&quot; &quot;${genome_dir}class_IV.bed&quot; --beforeRegionStartLength 200 --regionBodyLength 1000 --afterRegionStartLength 200 --outFileName &quot;${coverage_dir}class_heatmap_matrix.mat.gz&quot; --outFileNameMatrix &quot;${coverage_dir}class_heatmap_matrix.values.tab&quot; --numberOfProcessors &quot;${CPU}&quot;
+
+plotHeatmap -m &quot;${coverage_dir}class_heatmap_matrix.mat.gz&quot; -out &quot;${image_dir}Heatmap1.png&quot; --colorMap Blues --zMax 2 --averageTypeSummaryPlot mean --labelRotation 45 --startLabel &quot;ATG&quot; --endLabel &quot;stop&quot; --regionsLabel &quot;class I&quot; &quot;class II&quot; &quot;class III&quot; &quot;class IV&quot; --samplesLabel &quot;wt&quot; &quot;rnjA KO&quot;</code></pre>
+<pre><code>## bash: řádek 2: bedGraphToBigWig: příkaz nenalezen
+## bash: řádek 3: bedGraphToBigWig: příkaz nenalezen</code></pre>
+<hr />
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 3.2.3 (2015-12-10)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 18.2
+## 
+## locale:
+##  [1] LC_CTYPE=cs_CZ.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=cs_CZ.UTF-8        LC_COLLATE=cs_CZ.UTF-8    
+##  [5] LC_MONETARY=cs_CZ.UTF-8    LC_MESSAGES=cs_CZ.UTF-8   
+##  [7] LC_PAPER=cs_CZ.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=cs_CZ.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## loaded via a namespace (and not attached):
+##  [1] backports_1.1.4 magrittr_1.5    rprojroot_1.3-2 tools_3.2.3    
+##  [5] htmltools_0.3.6 yaml_2.1.14     Rcpp_1.0.2      stringi_1.1.5  
+##  [9] rmarkdown_1.10  knitr_1.20      stringr_1.2.0   digest_0.6.12  
+## [13] evaluate_0.10</code></pre>
 </div>
 
 

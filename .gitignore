@@ -25,3 +25,7 @@ coverage_RNA-seq
 DESeq2results_rnjAKO_vs_WT.SIG.txt
 DESeq2results_rnjAKO_vs_WT.txt
 classes_stats
+class_I.txt
+class_II.txt
+class_III.txt
+class_IV.txt

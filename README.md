@@ -21,6 +21,6 @@ shell_variables_RNA-seq.sh
 classes.html
 
 ## figures
-figure2.R - script produces Figure 2A, B
+figure1.R - script produces Figure 1A, B
 
-figure3.R - script produces Figure 3A
+figure2.R - script produces Figure 2A

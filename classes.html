@@ -125,8 +125,9 @@ $(document).ready(function () {
 </div>
 
 
-<p>Variables for shell scripts are stored in the file “shell_variables_ChIP-seq.sh” and can be modified as needed:</p>
-<pre class="bash"><code>cat shell_variables_ChIP-seq.sh</code></pre>
+<p>Variables for shell scripts are stored in the files “shell_variables_ChIP-seq.sh” and “shell_variables_RNA-seq.sh” and can be modified as needed:</p>
+<pre class="bash"><code>cat shell_variables_ChIP-seq.sh
+cat shell_variables_RNA-seq.sh</code></pre>
 <pre><code>## #!/bin/bash
 ## 
 ## # CPU threads
@@ -155,6 +156,36 @@ $(document).ready(function () {
 ## ko=&quot;KO&quot;
 ## # string contained in WT sample file names
 ## wt=&quot;wt&quot;
+## # images directry
+## image_dir=&quot;./images/&quot;
+## # genome sequence and annotation folder
+## genome_dir=&quot;./genome/&quot;
+## #!/bin/bash
+## 
+## # CPU threads
+## CPU=4
+## # output directory for QC
+## fastQC_dir=&quot;./fastQC_RNA-seq/&quot;
+## # FASTQ file directory
+## fastq_dir=&quot;./FASTQ_RNA-seq/&quot;
+## # file containing the list of all FASTQ files to be processed
+## fastq_file_list=&quot;FASTQ_files_RNA-seq&quot;
+## # FASTQ file extension
+## fastq_file_ext=&quot;.txt.gz$&quot;
+## # file containing reference genome sequence
+## genome='./genome/Bacillus_subtilis_subsp._subtilis_str._168.fasta'
+## # BAM file directory
+## bam_dir=&quot;./BAM_RNA-seq/&quot;
+## # minimum MAPQ threshold for inclusion in the final BAM file
+## Q=10
+## # output directory for genome coverage data
+## coverage_dir=&quot;./coverage_RNA-seq/&quot;
+## # file containing the list of all BAM files to be processed
+## bam_file_list=&quot;BAM_files_RNA-seq&quot;
+## # string contained in KO sample file names
+## ko=&quot;KO&quot;
+## # string contained in WT sample file names
+## wt=&quot;WT&quot;
 ## # images directry
 ## image_dir=&quot;./images/&quot;
 ## # genome sequence and annotation folder
@@ -253,11 +284,24 @@ write.table(cbind(class_IV$seqname, class_IV$start - 1, class_IV$end),
 bedGraphToBigWig &quot;${coverage_dir}wt.input-normalized.mean.bedgraph&quot; &quot;${genome_dir}chrom.sizes&quot; &quot;${coverage_dir}wt.input-normalized.mean.bw&quot;
 bedGraphToBigWig &quot;${coverage_dir}KO.input-normalized.mean.bedgraph&quot; &quot;${genome_dir}chrom.sizes&quot; &quot;${coverage_dir}KO.input-normalized.mean.bw&quot;
 
-computeMatrix scale-regions -S &quot;${coverage_dir}wt.input-normalized.mean.bw&quot; &quot;${coverage_dir}KO.input-normalized.mean.bw&quot; -R &quot;${genome_dir}class_I.bed&quot; &quot;${genome_dir}class_II.bed&quot; &quot;${genome_dir}class_III.bed&quot; &quot;${genome_dir}class_IV.bed&quot; --beforeRegionStartLength 200 --regionBodyLength 1000 --afterRegionStartLength 200 --outFileName &quot;${coverage_dir}class_heatmap_matrix.mat.gz&quot; --outFileNameMatrix &quot;${coverage_dir}class_heatmap_matrix.values.tab&quot; --numberOfProcessors &quot;${CPU}&quot;
+computeMatrix scale-regions -S &quot;${coverage_dir}wt.input-normalized.mean.bw&quot; &quot;${coverage_dir}KO.input-normalized.mean.bw&quot; -R &quot;${genome_dir}class_I.bed&quot; &quot;${genome_dir}class_II.bed&quot; &quot;${genome_dir}class_III.bed&quot; &quot;${genome_dir}class_IV.bed&quot; --beforeRegionStartLength 200 --regionBodyLength 1000 --afterRegionStartLength 200 --outFileName &quot;${coverage_dir}class_heatmap_matrix_ChIP-seq.mat.gz&quot; --outFileNameMatrix &quot;${coverage_dir}class_heatmap_matrix_ChIP-seq.values.tab&quot; --numberOfProcessors &quot;${CPU}&quot;
 
-plotHeatmap -m &quot;${coverage_dir}class_heatmap_matrix.mat.gz&quot; -out &quot;${image_dir}class_heatmap.svg&quot; --colorMap Greys --zMax 2 --averageTypeSummaryPlot mean --labelRotation 45 --startLabel &quot;ATG&quot; --endLabel &quot;stop&quot; --regionsLabel &quot;class I genes&quot; &quot;class II genes&quot; &quot;class III genes&quot; &quot;class IV genes&quot; --samplesLabel &quot;wt&quot; &quot;rnjA KO&quot; --whatToShow &quot;heatmap and colorbar&quot;
+plotHeatmap -m &quot;${coverage_dir}class_heatmap_matrix_ChIP-seq.mat.gz&quot; -out &quot;${image_dir}class_heatmap_ChIP-seq.svg&quot; --colorMap Greys --zMax 2 --averageTypeSummaryPlot mean --labelRotation 45 --startLabel &quot;ATG&quot; --endLabel &quot;stop&quot; --regionsLabel &quot;class I genes&quot; &quot;class II genes&quot; &quot;class III genes&quot; &quot;class IV genes&quot; --samplesLabel &quot;wt&quot; &quot;rnjA KO&quot; --whatToShow &quot;heatmap and colorbar&quot;
 
-plotProfile -m &quot;${coverage_dir}class_heatmap_matrix.mat.gz&quot; -out &quot;${image_dir}class_profile.svg&quot; --averageType mean --labelRotation 45 --startLabel &quot;ATG&quot; --endLabel &quot;stop&quot; --regionsLabel &quot;class I&quot; &quot;class II&quot; &quot;class III&quot; &quot;class IV&quot; --samplesLabel &quot;wt&quot; &quot;rnjA KO&quot; --yAxisLabel &quot;RNAP occupancy&quot; --plotTitle &quot;average gene profiles&quot;</code></pre>
+plotProfile -m &quot;${coverage_dir}class_heatmap_matrix_ChIP-seq.mat.gz&quot; -out &quot;${image_dir}class_profile_ChIP-seq.svg&quot; --averageType mean --labelRotation 45 --startLabel &quot;ATG&quot; --endLabel &quot;stop&quot; --regionsLabel &quot;class I&quot; &quot;class II&quot; &quot;class III&quot; &quot;class IV&quot; --samplesLabel &quot;wt&quot; &quot;rnjA KO&quot; --yAxisLabel &quot;RNAP occupancy&quot; --plotTitle &quot;average gene profiles&quot;</code></pre>
+</div>
+<div id="create-heatmaps-and-metagene-profiles-of-transcript-abundance-for-each-class" class="section level1">
+<h1>Create heatmaps and metagene profiles of transcript abundance for each class</h1>
+<pre class="bash"><code>source shell_variables_RNA-seq.sh
+
+bedGraphToBigWig &quot;${coverage_dir}wt.mean.bedgraph&quot; &quot;${genome_dir}chrom.sizes&quot; &quot;${coverage_dir}wt.mean.bw&quot;
+bedGraphToBigWig &quot;${coverage_dir}KO.mean.bedgraph&quot; &quot;${genome_dir}chrom.sizes&quot; &quot;${coverage_dir}KO.mean.bw&quot;
+
+computeMatrix scale-regions -S &quot;${coverage_dir}wt.mean.bw&quot; &quot;${coverage_dir}KO.mean.bw&quot; -R &quot;${genome_dir}class_I.bed&quot; &quot;${genome_dir}class_II.bed&quot; &quot;${genome_dir}class_III.bed&quot; &quot;${genome_dir}class_IV.bed&quot; --beforeRegionStartLength 200 --regionBodyLength 1000 --afterRegionStartLength 200 --outFileName &quot;${coverage_dir}class_heatmap_matrix_RNA-seq.mat.gz&quot; --outFileNameMatrix &quot;${coverage_dir}class_heatmap_matrix_RNA-seq.values.tab&quot; --numberOfProcessors &quot;${CPU}&quot;
+
+plotHeatmap -m &quot;${coverage_dir}class_heatmap_matrix_RNA-seq.mat.gz&quot; -out &quot;${image_dir}class_heatmap_RNA-seq.svg&quot; --colorMap Greys --zMax 2 --averageTypeSummaryPlot mean --labelRotation 45 --startLabel &quot;ATG&quot; --endLabel &quot;stop&quot; --regionsLabel &quot;class I genes&quot; &quot;class II genes&quot; &quot;class III genes&quot; &quot;class IV genes&quot; --samplesLabel &quot;wt&quot; &quot;rnjA KO&quot; --whatToShow &quot;heatmap and colorbar&quot;
+
+plotProfile -m &quot;${coverage_dir}class_heatmap_matrix_RNA-seq.mat.gz&quot; -out &quot;${image_dir}class_profile_RNA-seq.svg&quot; --averageType mean --labelRotation 45 --startLabel &quot;ATG&quot; --endLabel &quot;stop&quot; --regionsLabel &quot;class I&quot; &quot;class II&quot; &quot;class III&quot; &quot;class IV&quot; --samplesLabel &quot;wt&quot; &quot;rnjA KO&quot; --yAxisLabel &quot;transcript abundance&quot; --plotTitle &quot;average gene profiles&quot;</code></pre>
 <hr />
 <pre class="r"><code>sessionInfo()</code></pre>
 <pre><code>## R version 3.2.3 (2015-12-10)

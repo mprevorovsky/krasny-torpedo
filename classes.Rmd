@@ -7,10 +7,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Variables for shell scripts are stored in the file "shell_variables_ChIP-seq.sh" and can be modified as needed:
+Variables for shell scripts are stored in the files "shell_variables_ChIP-seq.sh" and "shell_variables_RNA-seq.sh" and can be modified as needed:
 
 ```{bash variables}
 cat shell_variables_ChIP-seq.sh
+cat shell_variables_RNA-seq.sh
 ```
 
 #Assign genes to classes based on RNAP occupancy and gene expression
@@ -25,7 +26,7 @@ Gene classification criteria based on rnajA KO/WT comparison:
 
 * class IV: >=120% RNAP occupancy (ChIP seq), and no significant change or significantly downregulated (RNA-seq)
 
-```{r}
+```{r, eval=TRUE}
 chip <- read.delim('./coverage_ChIP-seq/ChIP-seq_gene_coverage.txt', 
                    sep = '\t', header = TRUE, stringsAsFactors = FALSE)
 chip <- cbind(chip, chip$cov_ko / chip$cov_wt)
@@ -109,17 +110,32 @@ on 2nd September 2019
 deeptools --version
 ```
 
-```{bash}
+```{bash, eval=FALSE}
 source shell_variables_ChIP-seq.sh
 
 bedGraphToBigWig "${coverage_dir}wt.input-normalized.mean.bedgraph" "${genome_dir}chrom.sizes" "${coverage_dir}wt.input-normalized.mean.bw"
 bedGraphToBigWig "${coverage_dir}KO.input-normalized.mean.bedgraph" "${genome_dir}chrom.sizes" "${coverage_dir}KO.input-normalized.mean.bw"
 
-computeMatrix scale-regions -S "${coverage_dir}wt.input-normalized.mean.bw" "${coverage_dir}KO.input-normalized.mean.bw" -R "${genome_dir}class_I.bed" "${genome_dir}class_II.bed" "${genome_dir}class_III.bed" "${genome_dir}class_IV.bed" --beforeRegionStartLength 200 --regionBodyLength 1000 --afterRegionStartLength 200 --outFileName "${coverage_dir}class_heatmap_matrix.mat.gz" --outFileNameMatrix "${coverage_dir}class_heatmap_matrix.values.tab" --numberOfProcessors "${CPU}"
+computeMatrix scale-regions -S "${coverage_dir}wt.input-normalized.mean.bw" "${coverage_dir}KO.input-normalized.mean.bw" -R "${genome_dir}class_I.bed" "${genome_dir}class_II.bed" "${genome_dir}class_III.bed" "${genome_dir}class_IV.bed" --beforeRegionStartLength 200 --regionBodyLength 1000 --afterRegionStartLength 200 --outFileName "${coverage_dir}class_heatmap_matrix_ChIP-seq.mat.gz" --outFileNameMatrix "${coverage_dir}class_heatmap_matrix_ChIP-seq.values.tab" --numberOfProcessors "${CPU}"
 
-plotHeatmap -m "${coverage_dir}class_heatmap_matrix.mat.gz" -out "${image_dir}class_heatmap.svg" --colorMap Greys --zMax 2 --averageTypeSummaryPlot mean --labelRotation 45 --startLabel "ATG" --endLabel "stop" --regionsLabel "class I genes" "class II genes" "class III genes" "class IV genes" --samplesLabel "wt" "rnjA KO" --whatToShow "heatmap and colorbar"
+plotHeatmap -m "${coverage_dir}class_heatmap_matrix_ChIP-seq.mat.gz" -out "${image_dir}class_heatmap_ChIP-seq.svg" --colorMap Greys --zMax 2 --averageTypeSummaryPlot mean --labelRotation 45 --startLabel "ATG" --endLabel "stop" --regionsLabel "class I genes" "class II genes" "class III genes" "class IV genes" --samplesLabel "wt" "rnjA KO" --whatToShow "heatmap and colorbar"
 
-plotProfile -m "${coverage_dir}class_heatmap_matrix.mat.gz" -out "${image_dir}class_profile.svg" --averageType mean --labelRotation 45 --startLabel "ATG" --endLabel "stop" --regionsLabel "class I" "class II" "class III" "class IV" --samplesLabel "wt" "rnjA KO" --yAxisLabel "RNAP occupancy" --plotTitle "average gene profiles"
+plotProfile -m "${coverage_dir}class_heatmap_matrix_ChIP-seq.mat.gz" -out "${image_dir}class_profile_ChIP-seq.svg" --averageType mean --labelRotation 45 --startLabel "ATG" --endLabel "stop" --regionsLabel "class I" "class II" "class III" "class IV" --samplesLabel "wt" "rnjA KO" --yAxisLabel "RNAP occupancy" --plotTitle "average gene profiles"
+```
+
+#Create heatmaps and metagene profiles of transcript abundance for each class
+
+```{bash}
+source shell_variables_RNA-seq.sh
+
+bedGraphToBigWig "${coverage_dir}wt.mean.bedgraph" "${genome_dir}chrom.sizes" "${coverage_dir}wt.mean.bw"
+bedGraphToBigWig "${coverage_dir}KO.mean.bedgraph" "${genome_dir}chrom.sizes" "${coverage_dir}KO.mean.bw"
+
+computeMatrix scale-regions -S "${coverage_dir}wt.mean.bw" "${coverage_dir}KO.mean.bw" -R "${genome_dir}class_I.bed" "${genome_dir}class_II.bed" "${genome_dir}class_III.bed" "${genome_dir}class_IV.bed" --beforeRegionStartLength 200 --regionBodyLength 1000 --afterRegionStartLength 200 --outFileName "${coverage_dir}class_heatmap_matrix_RNA-seq.mat.gz" --outFileNameMatrix "${coverage_dir}class_heatmap_matrix_RNA-seq.values.tab" --numberOfProcessors "${CPU}"
+
+plotHeatmap -m "${coverage_dir}class_heatmap_matrix_RNA-seq.mat.gz" -out "${image_dir}class_heatmap_RNA-seq.svg" --colorMap Greys --zMax 20 --averageTypeSummaryPlot mean --labelRotation 45 --startLabel "ATG" --endLabel "stop" --regionsLabel "class I genes" "class II genes" "class III genes" "class IV genes" --samplesLabel "wt" "rnjA KO" --whatToShow "heatmap and colorbar"
+
+plotProfile -m "${coverage_dir}class_heatmap_matrix_RNA-seq.mat.gz" -out "${image_dir}class_profile_RNA-seq.svg" --averageType mean --labelRotation 45 --startLabel "ATG" --endLabel "stop" --regionsLabel "class I" "class II" "class III" "class IV" --samplesLabel "wt" "rnjA KO" --yAxisLabel "transcript abundance" --plotTitle "average gene profiles"
 ```
 
 ***

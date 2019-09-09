@@ -24,3 +24,7 @@ bam_file_list="BAM_files_RNA-seq"
 ko="KO"
 # string contained in WT sample file names
 wt="WT"
+# images directry
+image_dir="./images/"
+# genome sequence and annotation folder
+genome_dir="./genome/"

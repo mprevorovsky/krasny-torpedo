@@ -134,7 +134,7 @@ multiBigwigSummary bins --outRawCounts "${coverage_dir}${ko}.tab" --binSize 1 -p
 multiBigwigSummary bins --outRawCounts "${coverage_dir}${wt}.tab" --binSize 1 -p "${CPU}" -o "${coverage_dir}${wt}.npz" -b ${wt_bw_files}
 ```
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 coverage_dir <- './coverage_RNA-seq/'
 ko <- "KO"
 wt <- "WT"
@@ -198,7 +198,7 @@ gffRead <- function(gffFile, nrows = -1) {
 }
 ```
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 gff_file <- './genome/GCF_000009045.1_ASM904v1_genomic_reverse_SYS.gff'
 gff <- gffRead(gff_file)
 gff <- gff[gff$feature == 'gene', ]
@@ -224,7 +224,7 @@ for (i in 1:nrow(gene_coverage)){
     sum(coverage_ko[which(coverage_ko$chr == gene_coverage[i, 'seqname'] &
                           coverage_ko$start + 1 >=  gene_coverage[i, 'start'] &
                           coverage_ko$end <= gene_coverage[i, 'end']), 'coverage']) / gene_length_kb
-  print(nrow(gene_coverage) - i)
+#  print(nrow(gene_coverage) - i)
 }
 write.table(gene_coverage, file = paste0(coverage_dir, 'RNA-seq_gene_coverage.txt'),
             quote = FALSE, sep = '\t', row.names = FALSE, col.names = TRUE)
@@ -232,7 +232,7 @@ write.table(gene_coverage, file = paste0(coverage_dir, 'RNA-seq_gene_coverage.tx
 
 #Analysis of differential gene expression
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 # construct count table
 bam_dir <- './BAM_RNA-seq/'
 bam <- BamFileList(list.files(bam_dir, pattern = "\\.bam$", full.names = TRUE),
@@ -283,6 +283,36 @@ write.csv(res, file = 'DESeq2results_rnjAKO_vs_WT.txt', quote = FALSE)
 res.sig <- res[which(res$padj <= padj.threshold), ]
 res.sig <- res.sig[order(res.sig$log2FoldChange), ]
 write.csv(res.sig, file = 'DESeq2results_rnjAKO_vs_WT.SIG.txt', quote = FALSE)
+```
+
+#Comparison of expression values determined from normalized coverage vs. by DESeq2
+
+```{r, fig.asp=1}
+gene_coverage <- read.delim('coverage_RNA-seq/RNA-seq_gene_coverage.txt', 
+                            header = TRUE, stringsAsFactors = FALSE)
+gene_coverage <- cbind(gene_coverage, log2(gene_coverage$cov_ko / gene_coverage$cov_wt))
+colnames(gene_coverage)[ncol(gene_coverage)] <- 'log2foldChange'
+gene_coverage <- gene_coverage[!is.na(gene_coverage$log2foldChange) &
+                               !is.infinite(gene_coverage$log2foldChange) &
+                               !is.nan(gene_coverage$log2foldChange), ]
+res <- read.csv('DESeq2results_rnjAKO_vs_WT.txt', 
+                header = TRUE, stringsAsFactors = FALSE, row.names = 1)
+res <- res[complete.cases(res$log2FoldChange), ]
+res <- res[which(rownames(res) %in% gene_coverage$Name), ]
+res <- res[order(rownames(res)), ]
+gene_coverage <- gene_coverage[which(gene_coverage$Name %in% rownames(res)), ]
+gene_coverage <- gene_coverage[order(gene_coverage$Name), ]
+plot(log2(gene_coverage$cov_ko / gene_coverage$cov_wt), res$log2FoldChange,
+     pch = 20, col = '#00000050',
+     xlab = 'log2(normalized coverage) [deeptools]',
+     ylab = 'log2(fold change expression) [DESeq2]')
+abline(a = -1, b = 1, col = 'grey')
+abline(a = 1, b = 1, col = 'grey')
+text(x = -5, y = 5,
+     labels = paste0('Pearson\'s R = ', round(cor(x = log2(gene_coverage$cov_ko / 
+                                                           gene_coverage$cov_wt),
+                                               y = res$log2FoldChange,                         
+                                               method = 'pearson'), 3)))
 ```
 
 ***

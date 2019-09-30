@@ -1,0 +1,42 @@
+---
+title: Comparison of ΔrnjA and Δrho transcriptomic data (version 2)
+output: html_document
+---
+
+Relative gene expression values for the Δrho mutant (expressed as log2 fold change vs WT) were taken from DOI: 10.1126/science.1206848.
+
+Relative gene expression values for the ΔrnjA mutant (expressed as log2 fold change vs WT) were determined by DESeq2.
+
+Only class IV genes for which expression data were available from both ΔrnjA and Δrho mutants were used in this comparison (1609 out of 1654 class IV genes).
+
+One-sided Pearson's correlation test was used to assess any positive association between class IV gene expression values in the two mutants.
+
+```{r, fig.height = 9, fig.width = 8}
+c4 <- read.delim('class_IV.txt', stringsAsFactors = FALSE, dec = ',', header = TRUE) # 1654 genes
+c4$log2FoldChange <- as.numeric(c4$log2FoldChange)
+rho <- read.delim('rho', stringsAsFactors = FALSE, dec = ',', header = TRUE) # TableS10.xlsx from DOI: 10.1126/science.1206848
+
+# remove genes with missing expression values
+rho.sub <- rho[complete.cases(rho$Sense.effect), ]
+
+# only keep genes present in both datasets
+c4.sub <- c4[which(c4$Name %in% rho.sub$Locus_tag), ]
+c4.sub <- c4.sub[order(c4.sub$Name), ]
+rho.sub <- rho.sub[which(rho.sub$Locus_tag %in% c4.sub$Name), ]
+rho.sub <- rho.sub[order(rho.sub$Locus_tag), ]
+# 1609 genes kept
+
+lim <- range(c(c4.sub$log2FoldChange, rho.sub$Sense.effect))
+cairo_pdf('rho_comparison.pdf')
+par(cex = 1.3, mar = c(4, 4, 4, 4))
+plot(c4.sub$log2FoldChange, rho.sub$Sense.effect,
+     xlab = 'ΔrnjA vs WT (log2 fold change)',
+     ylab = 'Δrho vs WT (log2 fold change)',
+     xlim = lim, ylim = lim, pch = 20, col = '#00000060')
+abline(lm(c4.sub$log2FoldChange ~ rho.sub$Sense.effect), col = 'blue')
+abline(h = 0, v = 0)
+legend(x = 'bottomleft', legend = 'linear regression', lty = 1, col = 'blue', bty = 'n')
+dev.off()
+
+cor.test(c4.sub$log2FoldChange, rho.sub$Sense.effect, method = 'pearson', alternative = 'greater')
+```

@@ -1,5 +1,6 @@
 ---
 title: "RNA-seq analyses"
+author: "Martin Převorovský, prevorov@natur.cuni.cz, www.GenoMik.cz"
 output: html_document
 ---
 
@@ -42,7 +43,7 @@ Technical quality of library construction and sequencing run was tested using fa
 fastqc --version
 ```
 
-```{bash, eval=FALSE}
+```{bash, eval=TRUE}
 source shell_variables_RNA-seq.sh
 
 mkdir -p "${fastQC_dir}"
@@ -56,7 +57,7 @@ done
 
 Summarize fastQC results
 
-```{r, message=FALSE, eval=FALSE}
+```{r, message=FALSE, eval=TRUE}
 fastQC_dir <- './fastQC_RNA-seq/'
 qc <- qc_aggregate(fastQC_dir, progressbar = FALSE)
 qc_report(qc.path = fastQC_dir, result.file = paste0(fastQC_dir, 'fastQC-summary'),
@@ -82,7 +83,7 @@ hisat2 --version
 samtools --version
 ```
 
-```{bash, eval=FALSE}
+```{bash, eval=TRUE}
 source shell_variables_RNA-seq.sh
 
 # build HISAT2 index
@@ -112,7 +113,7 @@ Notes
 deeptools --version
 ```
 
-```{bash, eval=FALSE}
+```{bash, eval=TRUE}
 source shell_variables_RNA-seq.sh
 
 mkdir -p "${coverage_dir}"

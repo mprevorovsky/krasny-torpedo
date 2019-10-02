@@ -1,5 +1,6 @@
 ---
-title: Comparison of ΔrnjA and Δrho transcriptomic data (version 2)
+title: "Comparison of ΔrnjA and Δrho transcriptomic data (version 2)"
+author: "Martin Převorovský, prevorov@natur.cuni.cz, www.GenoMik.cz"
 output: html_document
 ---
 

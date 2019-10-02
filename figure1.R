@@ -1,3 +1,5 @@
+##Martin Převorovský prevorov@natur.cuni.cz www.GenoMik.cz
+
 library(RColorBrewer)
 chip <- read.delim('./coverage_ChIP-seq/ChIP-seq_gene_coverage.txt', 
                    sep = '\t', header = TRUE, stringsAsFactors = FALSE)

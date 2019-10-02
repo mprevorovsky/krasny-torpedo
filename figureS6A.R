@@ -28,7 +28,9 @@ gffRead <- function(gffFile, nrows = -1) {
   stopifnot(!any(is.na(gff$start)), !any(is.na(gff$end)))
   return(gff)
 }
+##
 
+##Martin Převorovský prevorov@natur.cuni.cz www.GenoMik.cz
 genelist <- c('ldh', 'ydbL', 'ymcB', 'bsrB', 'veg', 'rpmI', 'hag', 'purR', 'pyrR')
 
 gff_file <- './genome/GCF_000009045.1_ASM904v1_genomic_reverse_SYS.gff'

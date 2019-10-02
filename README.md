@@ -16,11 +16,15 @@ RNA-seq.html
 shell_variables_RNA-seq.sh
 
 ## gene classification based on RNAP occupancy and gene expression in rnjA KO
-**classes.Rmd**
+**classes.Rmd** - includes generation of Figure 2
 
 classes.html
 
-## figures
-figure1.R - script produces Figure 1A, B
+## other
+figure1.R - script produces Figure 1
 
-figure2.R - script produces Figure 2A
+figureS6A.R - script produces Figure S6A
+
+rho_comparison.Rmd - includes generation of Figure S12B
+
+rho_comparison.html
